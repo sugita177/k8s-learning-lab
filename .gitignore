@@ -1,0 +1,13 @@
+# Mentor & Progress Management (Local only)
+agents.md
+
+# OS / Editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Temporary / Secret files
+*.tmp
+*.bak
+*.secret.yaml
+
