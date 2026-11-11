@@ -52,4 +52,56 @@ kubectl apply -f 00-namespace.yaml
 ### 3. 作成したマニフェスト
 - [00-namespace.yaml](file:///Users/moriaki/workspace/k8s-learning-lab/01-basics/00-namespace.yaml)
 
+---
+
+## Step 1-2: 最小単位 Pod の作成とライフサイクル
+
+### 1. 学んだ概念
+- **Pod（ポッド）とは**:
+  - Kubernetes における最小のデプロイ単位（コンテナを直接デプロイするのではなく、Pod というカプセルに包む）。
+  - 1つの Pod 内に複数のコンテナ（運命共同体のメインコンテナとサイドカー等）を同居させることができ、Pod 内のコンテナ同士は同一 IP アドレスと `localhost` を共有して通信できる。
+- **マニフェストの4大基本要素**:
+  - `apiVersion`: リソースの API バージョン（Pod は `v1`）
+  - `kind`: リソース種別（`Pod`）
+  - `metadata`: 名前（`name`）や所属する部屋（`namespace`）
+  - `spec`: あるべき仕様（コンテナイメージ、ポート番号等）
+- **Namespace によるアクセスの壁**:
+  - `kubectl get pods` はデフォルトで `default` 名前空間しか見ないため、別 Namespace のリソース確認には `-n <namespace>` の指定が必須。
+- **Pod へのアクセスと閉じたネットワーク**:
+  - Pod はクラスタ内部の仮想ネットワーク上にあり、そのままでは外部（ホスト Mac）から直接アクセスできない。
+  - 開発・デバッグ時は `kubectl port-forward` を使って一時的なトンネルを開通させて疎通確認を行う。
+- **Pod 単体の限界（なぜ実務で Pod を直接使わないのか）**:
+  - Pod は一時的な（ephemeral）存在であり、手動削除やノード障害等で停止しても自己修復（セルフヒーリング）されない。
+  - 継続的な運用には、Pod を監視・管理する上位リソース（Deployment）が不可欠。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. Pod マニフェストの適用
+kubectl apply -f 01-pod.yaml
+
+# 2. default 名前空間での確認（見つからないことを確認）
+kubectl get pods
+# => No resources found in default namespace.
+
+# 3. 指定した名前空間（k8s-lab）での確認
+kubectl get pods -n k8s-lab
+# => my-first-pod   1/1   Running   0   69s
+
+# 4. Pod の詳細（健康診断書・イベント履歴）の確認
+kubectl describe pod my-first-pod -n k8s-lab
+# => default-scheduler によるノード割り当て、kubelet によるイメージプルと起動イベントを確認
+
+# 5. ポートフォワードによるローカル疎通確認（http://localhost:8080 で Nginx 画面確認）
+kubectl port-forward pod/my-first-pod -n k8s-lab 8080:80
+
+# 6. Pod の削除と限界の検証（自動復活しないことを確認）
+kubectl delete pod my-first-pod -n k8s-lab
+kubectl get pods -n k8s-lab
+# => No resources found in k8s-lab namespace.
+```
+
+### 3. 作成したマニフェスト
+- [01-pod.yaml](file:///Users/moriaki/workspace/k8s-learning-lab/01-basics/01-pod.yaml)
+
+
 
