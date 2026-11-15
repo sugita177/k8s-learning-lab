@@ -103,5 +103,59 @@ kubectl get pods -n k8s-lab
 ### 3. 作成したマニフェスト
 - [01-pod.yaml](file:///Users/moriaki/workspace/k8s-learning-lab/01-basics/01-pod.yaml)
 
+---
+
+## Step 1-3: Deployment と ReplicaSet（宣言的制御・セルフヒーリング・ローリングアップデート）
+
+### 1. 学んだ概念
+- **3層ピラミッド構造（親子関係）**:
+  - **Deployment（司令官）**: アプリケーション全体の世代交代、ローリングアップデート、ロールバックを管理。
+  - **ReplicaSet（現場監督）**: 指定された数（`replicas`）の Pod が常に稼働している状態を維持・監視。
+  - **Pod（現場作業員）**: 実際にコンテナが動作する最小単位。
+  - リソース名の家系図: `nginx-deployment` (Deploy) -> `nginx-deployment-<hash>` (RS) -> `nginx-deployment-<hash>-<random>` (Pod)
+- **ラベル（Labels）とセレクタ（Selector）**:
+  - `spec.selector.matchLabels` と `spec.template.metadata.labels` のキー・値が完全一致することで、監督対象の Pod を疎結合に識別・管理する。
+- **セルフヒーリング（自己修復 / 調和ループ）**:
+  - 「あるべき状態（Desired: 3）」と「現在の状態（Actual）」を常に比較（Reconciliation Loop）。Pod が手動削除や障害で死んでも、即座に新しい Pod を自動生成して理想数を維持する。
+- **無停止スケーリング（スケールアウト・イン）**:
+  - `replicas` の数値を変更して `kubectl apply` することで、稼働中の既存 Pod を停止させることなく即座に増減できる。
+- **ローリングアップデート（無停止更新）**:
+  - コンテナイメージ等を更新した際、新旧の ReplicaSet が協調して「新 Pod 起動 -> 旧 Pod 停止」を1台ずつ安全に行い、サービスを止めることなくバージョン更新を行う。
+- **ロールバック（緊急巻き戻し）**:
+  - 旧 ReplicaSet は `DESIRED: 0` の状態で保持されるため、万が一の障害時には `kubectl rollout undo` で即座に安全な旧バージョンへ切り戻しができる。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. Deployment マニフェストの適用
+kubectl apply -f 02-deployment.yaml
+
+# 2. 3層構造（Deploy, RS, Pod）の一括確認
+kubectl get deploy,rs,po -n k8s-lab
+
+# 3. セルフヒーリングの検証（Pod を1つ削除し、即座に新 Pod が誕生することを確認）
+kubectl delete pod nginx-deployment-7578bd675d-8rx7h -n k8s-lab
+kubectl get pods -n k8s-lab
+# => わずか数秒（AGE: 11s）の新 Pod が自動補充され 3 台を維持
+
+# 4. スケーリングの検証（replicas: 5 に変更して apply）
+kubectl apply -f 02-deployment.yaml
+kubectl get pods -n k8s-lab
+# => 既存の 3 台は停止せず、新しく 2 台が追加されて計 5 台へ即時拡張
+
+# 5. ローリングアップデートの検証（image を nginx:1.27-alpine に変更）
+kubectl apply -f 02-deployment.yaml
+kubectl get rs -n k8s-lab
+# => 新しい ReplicaSet が誕生し、旧 RS から新 RS へ 1 台ずつ交代する過渡期を確認
+
+# 6. ロールバックの検証（緊急巻き戻し）
+kubectl rollout undo deployment/nginx-deployment -n k8s-lab
+kubectl get rs -n k8s-lab
+# => 安全に逆回転し、旧 ReplicaSet（nginx:1.27）へ無停止で復帰
+```
+
+### 3. 作成したマニフェスト
+- [02-deployment.yaml](file:///Users/moriaki/workspace/k8s-learning-lab/01-basics/02-deployment.yaml)
+
+
 
 
