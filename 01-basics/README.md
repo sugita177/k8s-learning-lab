@@ -156,6 +156,50 @@ kubectl get rs -n k8s-lab
 ### 3. 作成したマニフェスト
 - [02-deployment.yaml](./02-deployment.yaml)
 
+---
+
+## Step 1-4: Service によるネットワーク抽象化（ClusterIP と LoadBalancer）
+
+### 1. 学んだ概念
+- **Service リソースの存在理由**:
+  - Pod の IP アドレスは一時的（ephemeral）であり、再作成のたびに変動するため直接宛先にするのは危険。
+  - Service が不変の固定仮想 IP（Virtual IP / ClusterIP）と DNS 名を提供し、背後の複数 Pod への自動負荷分散（ロードバランシング）を行う。
+- **Endpoints（EndpointSlice）による動的追跡**:
+  - Service の `selector` に合致する Pod 群の最新 IP アドレスがリアルタイムに Endpoints リストへ登録・更新される。
+- **Service のタイプと入口の違い**:
+  - **ClusterIP（デフォルト）**: クラスタ内部通信専用。社内 API や DB など外部公開不要なバックエンドに利用。
+  - **LoadBalancer**: クラスタ外部（Mac やインターネット）から直接アクセス可能な入口。クラウド環境（AWS ELB, GCP CLB）や OrbStack が専用の外部 IP / ドメインをプロビジョニングする。
+  - 構造的には `LoadBalancer` ⊃ `NodePort` ⊃ `ClusterIP` の包含関係（上位互換）となっている。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. ClusterIP マニフェストの適用
+kubectl apply -f 03-service-clusterip.yaml
+
+# 2. Service および Endpoints（背後の Pod IP リスト）の確認
+kubectl get svc -n k8s-lab
+# => CLUSTER-IP: 192.168.194.169, EXTERNAL-IP: <none>
+
+kubectl get ep -n k8s-lab
+# => 3 台の Pod の IP（192.168.194.20:80, ...）が自動登録されていることを確認
+
+# 3. LoadBalancer マニフェストの適用
+kubectl apply -f 04-service-loadbalancer.yaml
+
+# 4. 外部公開状態の確認
+kubectl get svc -n k8s-lab
+# => nginx-lb-service   LoadBalancer   EXTERNAL-IP: 192.168.139.2   PORT(S): 8080:30222/TCP
+
+# 5. ホスト Mac からの直接アクセス（port-forward なしでブラウザ表示確認）
+# ブラウザ: http://192.168.139.2:8080
+# OrbStack ローカル DNS: curl http://nginx-lb-service.k8s-lab.k8s.orb.local:8080
+```
+
+### 3. 作成したマニフェスト
+- [03-service-clusterip.yaml](./03-service-clusterip.yaml)
+- [04-service-loadbalancer.yaml](./04-service-loadbalancer.yaml)
+
+
 
 
 
