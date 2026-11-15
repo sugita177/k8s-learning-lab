@@ -190,12 +190,18 @@ kubectl apply -f 04-service-loadbalancer.yaml
 kubectl get svc -n k8s-lab
 # => nginx-lb-service   LoadBalancer   EXTERNAL-IP: 192.168.139.2   PORT(S): 8080:30222/TCP
 
-# 5. ホスト Mac からの直接アクセス（port-forward なしでブラウザ表示確認）
-# ブラウザ: http://192.168.139.2:8080
-# OrbStack ローカル DNS: curl http://nginx-lb-service.k8s-lab.k8s.orb.local:8080
+# 5. ホスト Mac からの直接アクセス（port-forward なしでアクセス成功）
+# ブラウザ: http://192.168.139.2:8080 および http://k8s.orb.local:8080
+# ターミナル curl: curl http://k8s.orb.local:8080
+# => <!DOCTYPE html><html>...Welcome to nginx!...</html>
 ```
 
-### 3. 作成したマニフェスト
+### 3. トラブルシューティングの学び（Tips）
+- **ブラウザはアクセスできるのに curl が弾かれる（Failed to connect）場合**:
+  - macOS のセキュリティ機能「ローカルネットワークのアクセス許可」が影響している可能性がある。
+  - Mac の「システム設定」→「プライバシーとセキュリティ」→「ローカルネットワーク」で、対象のアプリ（Antigravity や Terminal など）の許可が ON になっているか確認する。
+
+### 4. 作成したマニフェスト
 - [03-service-clusterip.yaml](./03-service-clusterip.yaml)
 - [04-service-loadbalancer.yaml](./04-service-loadbalancer.yaml)
 
