@@ -18,3 +18,24 @@ spec:
           image: nginx:1.27
           ports:
             - containerPort: 80
+          # --- ① 環境変数の注入 (ConfigMap & Secret) ---
+          env:
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: web-html-config
+                  key: APP_ENV
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: web-api-secret
+                  key: API_KEY
+          # --- ② ファイルマウント (ConfigMap -> index.html) ---
+          volumeMounts:
+            - name: html-volume
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+      volumes:
+        - name: html-volume
+          configMap:
+            name: web-html-config

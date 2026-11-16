@@ -205,6 +205,45 @@ kubectl get svc -n k8s-lab
 - [03-service-clusterip.yaml](./03-service-clusterip.yaml)
 - [04-service-loadbalancer.yaml](./04-service-loadbalancer.yaml)
 
+---
+
+## Step 1-5: ConfigMap と Secret による設定・機密情報の分離
+
+### 1. 学んだ概念
+- **設定とコンテナイメージの分離（The Twelve-Factor App）**:
+  - コンテナイメージ内に設定値や機密情報をハードコードせず、外部リソースとして切り離すことで、同一イメージを全環境（dev/stg/prod）で安全に再利用できる。
+- **ConfigMap と Secret の役割分担**:
+  - **ConfigMap**: 一般的な設定値（平文テキスト、環境変数、設定ファイル等）。
+  - **Secret**: 機密情報（パスワード、API キー、トークン等）。マニフェスト手書き時は `stringData` で平文指定可能（自動で Base64 難読化）。※Base64 は暗号化ではないため Git への平文コミットは厳禁。
+- **コンテナへの2大注入パターン**:
+  - **環境変数（`env` / `valueFrom`）**: `configMapKeyRef` や `secretKeyRef` を使って、動的にコンテナ内環境変数へ流し込む。
+  - **ボリュームマウント（`volumes` & `volumeMounts`）**: ConfigMap をボリュームとして定義し、コンテナ内のファイルパスへマウントする。
+  - **`subPath` テクニック**: ディレクトリ全体を上書きせず、対象の単一ファイル（`index.html`）のみをピンポイントで差し替え、同ディレクトリ内の他ファイルを保護する。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. ConfigMap と Secret の作成
+kubectl apply -f 05-configmap.yaml
+kubectl apply -f 06-secret.yaml
+
+# 2. 設定注入を組み込んだ Deployment の更新適用
+kubectl apply -f 02-deployment.yaml
+
+# 3. ボリュームマウントによる Web コンテンツ差し替えの確認（curl / ブラウザ）
+curl http://k8s.orb.local:8080
+# => <h1>🎉 Hello from ConfigMap!</h1>... 見事に差し替わったことを確認
+
+# 4. コンテナ内部の環境変数確認（kubectl exec）
+kubectl exec -n k8s-lab <Pod名> -- printenv APP_ENV API_KEY
+# => production
+# => secret-token-step1-5-xyz
+```
+
+### 3. 作成したマニフェスト
+- [05-configmap.yaml](./05-configmap.yaml)
+- [06-secret.yaml](./06-secret.yaml)
+
+
 
 
 
