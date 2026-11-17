@@ -57,3 +57,49 @@ kubectl exec -n k8s-lab <新Pod名> -- cat /data/important-data.txt
 ### 3. 作成したマニフェスト
 - [01-pvc.yaml](./01-pvc.yaml)
 - [02-deployment-with-pvc.yaml](./02-deployment-with-pvc.yaml)
+
+---
+
+## Step 2-2: StatefulSet によるステートフルアプリケーション管理
+
+### 1. 学んだ概念
+- **Deployment（牛の群れ / ステートレス）vs StatefulSet（ペット / ステートフル）**:
+  - **Deployment**: Pod 名はランダムで互換性あり。一斉起動・一斉削除。複数台で同じディスクを共有する用途には向かない。
+  - **StatefulSet**: Pod 名は厳格な 0 始まりの連番（`web-stateful-0`, `-1`, `-2`）。起動は `0 → 1 → 2` の順、削除は `2 → 1 → 0` の逆順。
+- **`volumeClaimTemplates` による個別ストレージ割り当て**:
+  - StatefulSet の各 Pod に対して専用の PVC（例: `www-data-web-stateful-0`）が 1 対 1 で自動生成・紐付けされる。
+  - Pod が削除されて再生成されても、同じ名前（番号）で復活し、必ず自分専用の元のディスクに再接続される。
+- **Headless Service（`clusterIP: None`）**:
+  - StatefulSet と連携する「固定 IP を持たない」特殊な Service（StatefulSet の中に包まれているのではなく、独立したリソースとして横並びで連携する）。
+  - `web-stateful-0.web-headless` のように特定の番号の Pod をピンポイントで DNS 名前解決するために使用する。
+- **リソース容量の単位表記**:
+  - Kubernetes YAML では `GiB` ではなく `Gi`（2進数 1024 ベース）または `G`（10進数 1000 ベース）と表記する。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. Headless Service と StatefulSet の適用
+kubectl apply -f 03-statefulset.yaml
+
+# 2. 順番起動（4秒ごとの時間差）と連番命名の確認
+kubectl get pods -n k8s-lab -l app=web-stateful
+# => web-stateful-0 (27s) -> web-stateful-1 (23s) -> web-stateful-2 (19s)
+
+# 3. 個別 PVC の自動量産を確認
+kubectl get pvc -n k8s-lab
+# => www-data-web-stateful-0, -1, -2 の 3 つの PVC が個別に生成・Bound
+
+# 4. 個性・永続性の検証（0号機と1号機に別データを書き込み、0号機を削除）
+kubectl exec -n k8s-lab web-stateful-0 -- sh -c "echo 'I am Pod 0 (Primary)' > /usr/share/nginx/html/index.html"
+kubectl exec -n k8s-lab web-stateful-1 -- sh -c "echo 'I am Pod 1 (Replica)' > /usr/share/nginx/html/index.html"
+kubectl delete pod web-stateful-0 -n k8s-lab
+
+# 5. 復活後の確認
+kubectl get pods -n k8s-lab -l app=web-stateful
+# => web-stateful-0 が AGE: 7s として同じ名前で復活
+kubectl exec -n k8s-lab web-stateful-0 -- cat /usr/share/nginx/html/index.html
+# => I am Pod 0 (Primary)（専用ディスクへ再接続されたことを確認）
+```
+
+### 3. 作成したマニフェスト
+- [03-statefulset.yaml](./03-statefulset.yaml)
+
