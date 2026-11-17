@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-test-deploy
+  namespace: k8s-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: storage-test
+  template:
+    metadata:
+      labels:
+        app: storage-test
+    spec:
+      containers:
+        - name: nginx-container
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: persistent-storage
+              mountPath: /data      # Pod 内の /data フォルダに永続ディスクをマウント
+      volumes:
+        - name: persistent-storage
+          persistentVolumeClaim:
+            claimName: my-first-pvc # 先ほど作成した PVC を指定
