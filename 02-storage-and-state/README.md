@@ -103,3 +103,44 @@ kubectl exec -n k8s-lab web-stateful-0 -- cat /usr/share/nginx/html/index.html
 ### 3. 作成したマニフェスト
 - [03-statefulset.yaml](./03-statefulset.yaml)
 
+---
+
+## Step 2-3: Job と CronJob（バッチ処理と定期実行）
+
+### 1. 学んだ概念
+- **なぜ Deployment でバッチ処理を動かしてはいけないのか**:
+  - Deployment や StatefulSet は「常に Pod が稼働し続ける（Running）」状態を維持するため、処理が正常終了（exit code 0）しても「停止した」とみなして無限に再起動してしまう。
+- **Job（1回限りのバッチ処理）**:
+  - 処理が正常完了（`Completed`）するまで実行し、完了後は再起動せずに終了するリソース（失敗時は `backoffLimit` までリトライ）。
+  - Job 内の Pod テンプレートでは `restartPolicy` に `Always` は指定できず、**`Never`**（新しい Pod を作り直すためログが残りデバッグしやすい）または **`OnFailure`**（同一 Pod 内で再起動）を指定する。
+- **CronJob（定期実行）**:
+  - `schedule`（cron 記法）に従い、指定時刻ごとに Job を自動生成して実行するリソース（`CronJob` → `Job` → `Pod` の階層構造）。
+  - `successfulJobsHistoryLimit` / `failedJobsHistoryLimit` により、過去の履歴（Job/Pod）の保持件数を制限し、ゴミの蓄積を防ぐ。
+- **軽量デバッグ・バッチ用イメージ `busybox`**:
+  - 基本的な Linux コマンド群を数 MB に凝縮した超軽量イメージ。起動が高速で、検証や簡易スクリプト実行に最適。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. Job マニフェストの適用と Completed 状態・ログの確認
+kubectl apply -f 04-job.yaml
+kubectl get jobs -n k8s-lab
+# => my-first-job   Complete   1/1   15s   18s
+kubectl get pods -n k8s-lab -l job-name=my-first-job
+# => my-first-job-vkqjv   0/1   Completed   0   19s
+kubectl logs job/my-first-job -n k8s-lab
+# => バッチ処理を開始します... / 処理が正常完了しました！
+
+# 2. CronJob マニフェストの適用（1分おき実行）と親子生成の観察
+kubectl apply -f 05-cronjob.yaml
+kubectl get cronjobs,jobs,pods -n k8s-lab
+# => 60秒ごとに my-first-cronjob-<timestamp> の Job と Pod が自動生成され、2〜3秒で Completed になることを確認
+
+# 3. 定期実行の停止（後片付け）
+kubectl delete -f 05-cronjob.yaml
+```
+
+### 3. 作成したマニフェスト
+- [04-job.yaml](./04-job.yaml)
+- [05-cronjob.yaml](./05-cronjob.yaml)
+
+

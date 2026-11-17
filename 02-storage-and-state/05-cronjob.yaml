@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: my-first-cronjob
+  namespace: k8s-lab
+spec:
+  schedule: "*/1 * * * *"           # 1分ごとに実行（分 時 日 月 曜日）
+  successfulJobsHistoryLimit: 3     # 成功した Job 履歴を最新3件まで保持
+  failedJobsHistoryLimit: 1         # 失敗した Job 履歴を最新1件まで保持
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: cron-worker
+              image: busybox:1.36
+              command:
+                - sh
+                - -c
+                - "date; echo '定期バッチ処理を実行しました！'"
