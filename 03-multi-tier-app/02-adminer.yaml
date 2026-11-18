@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adminer-deployment
+  namespace: k8s-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adminer
+  template:
+    metadata:
+      labels:
+        app: adminer
+    spec:
+      containers:
+        - name: adminer
+          image: adminer:latest
+          ports:
+            - containerPort: 8080 # Adminer のコンテナ内デフォルトポート
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adminer-lb-svc
+  namespace: k8s-lab
+spec:
+  type: LoadBalancer
+  selector:
+    app: adminer
+  ports:
+    - port: 8081            # 外部（Mac）からアクセスするポート（8080との衝突回避）
+      targetPort: 8080      # Adminer コンテナのポート
