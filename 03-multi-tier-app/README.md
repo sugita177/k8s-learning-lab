@@ -76,3 +76,45 @@ kubectl describe pod <Pod名> -n k8s-lab | tail -n 15
 ### 3. 作成したマニフェスト
 - [03-probes-demo.yaml](./03-probes-demo.yaml)
 
+---
+
+## Step 3-3: Ingress による L7 ルーティング（パス・ホストベース振り分け）
+
+### 1. 学んだ概念
+- **LoadBalancer Service の課題と Ingress の役割**:
+  - マイクロサービスごとに `LoadBalancer` を作るとコスト（外部 IP・LB 課金）が爆発し、L4（IP/Port）のみのため URL パスやドメイン名による振り分けができない。
+  - **Ingress** を使うことで、外部への入口（LoadBalancer）を 1 つに集約し、HTTP（L7）のパスやホスト名に応じて背後の無料な `ClusterIP` Service へルーティングできる。
+- **Ingress（ルール表）と Ingress Controller（実行役）の分離**:
+  - `Ingress` マニフェスト単体では動作せず、クラスタ内に `NGINX Ingress Controller` などの実行役（`IngressClass`）が必要。
+- **`annotations` と `rewrite-target`**:
+  - `annotations` はコントローラー固有のオプション設定を記述するメタデータ。
+  - `nginx.ingress.kubernetes.io/rewrite-target: /` により、外向きのパス（`/hello`, `/api`）を受け取った後、バックエンドのアプリへ転送する直前に `/` へ書き換えて渡す（アプリ側の 404 エラーを防ぐ）。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. IngressClass の有無確認（初期状態はなし）
+kubectl get ingressclass
+
+# 2. NGINX Ingress Controller のインストールと稼働確認
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/cloud/deploy.yaml
+kubectl get ingressclass
+# => nginx (k8s.io/ingress-nginx) が登録
+kubectl get pods -n ingress-nginx
+# => ingress-nginx-controller が 1/1 Running
+
+# 3. 振り分け先アプリ2つ（ClusterIP）と Ingress ルールの適用
+kubectl apply -f 04-ingress-apps.yaml
+kubectl apply -f 05-ingress.yaml
+
+# 4. 同一入口・同一ポート（80番）へのパスベースルーティング確認
+curl http://k8s.orb.local/hello
+# => Hello from App 1 (Frontend)!
+curl http://k8s.orb.local/api
+# => Response from App 2 (Backend API)!
+```
+
+### 3. 作成したマニフェスト
+- [04-ingress-apps.yaml](./04-ingress-apps.yaml)
+- [05-ingress.yaml](./05-ingress.yaml)
+
+
