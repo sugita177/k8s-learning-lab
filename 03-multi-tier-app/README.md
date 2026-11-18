@@ -37,3 +37,42 @@ kubectl apply -f 02-adminer.yaml
 ### 3. 作成したマニフェスト
 - [01-postgres.yaml](./01-postgres.yaml)
 - [02-adminer.yaml](./02-adminer.yaml)
+
+---
+
+## Step 3-2: ヘルスチェックの実装（`livenessProbe` / `readinessProbe` / `startupProbe`）
+
+### 1. 学んだ概念
+- **なぜ `STATUS: Running` だけでは不十分なのか**:
+  - プロセスは生きているがフリーズ（デッドロック）して応答しない状態や、起動直後の準備中でまだリクエストを受けられない状態を検知するため、アプリケーションレベルの健康診断（Probe）が必要。
+- **3種類の Probe の役割と失敗時のアクション**:
+  - **`livenessProbe`（生存確認）**: 「生きているか？」をチェック。失敗時は **コンテナを強制再起動（Killing → Restart）** して治療する。
+  - **`readinessProbe`（受信準備確認）**: 「トラフィックを受け入れられるか？」をチェック。失敗時は再起動せず、**Service の Endpoints から切り離してトラフィックを遮断** する。
+  - **`startupProbe`（起動完了確認）**: 起動が遅いアプリ用。これが成功するまで `liveness` と `readiness` のチェックを待機させる。
+- **チェック方式**:
+  - `httpGet`（HTTP 200 確認）、`tcpSocket`（ポート疎通確認）、`exec`（コマンド実行結果の終了コード確認）の 3 パターン。
+- **主なチューニングパラメータ**:
+  - `initialDelaySeconds`（初回チェックまでの待機秒数）、`periodSeconds`（チェック間隔）、`failureThreshold`（異常と判定する連続失敗回数）。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. ヘルスチェック実験用マニフェストの適用
+kubectl apply -f 03-probes-demo.yaml
+
+# 2. readinessProbe 失敗実験（/tmp/ready を削除）
+kubectl exec -n k8s-lab <Pod名> -- rm /tmp/ready
+kubectl get pods -n k8s-lab -l app=probe-demo
+# => READY: 0/1, STATUS: Running, RESTARTS: 0（再起動されず維持）
+kubectl get ep probe-demo-svc -n k8s-lab
+# => ENDPOINTS が空になり、トラフィックから安全に切り離されたことを確認
+
+# 3. livenessProbe 失敗実験（/tmp/alive を削除）
+kubectl exec -n k8s-lab <Pod名> -- rm /tmp/alive
+kubectl describe pod <Pod名> -n k8s-lab | tail -n 15
+# => Events に "Readiness probe failed" の後に
+#    "Container nginx failed liveness probe, will be restarted" (Killing -> Created -> Started) が記録され自動復旧を確認
+```
+
+### 3. 作成したマニフェスト
+- [03-probes-demo.yaml](./03-probes-demo.yaml)
+

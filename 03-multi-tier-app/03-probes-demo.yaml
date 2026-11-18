@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: probe-demo-deploy
+  namespace: k8s-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: probe-demo
+  template:
+    metadata:
+      labels:
+        app: probe-demo
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+          # 起動時に健康チェック用ファイルを2つ作成してから Nginx を起動
+          command: ["/bin/sh", "-c", "touch /tmp/alive /tmp/ready && nginx -g 'daemon off;'"]
+          livenessProbe:
+            exec:
+              command: ["cat", "/tmp/alive"]
+            initialDelaySeconds: 3   # 起動から3秒後にチェック開始
+            periodSeconds: 3         # 3秒おきにチェック
+            failureThreshold: 2      # 2回連続失敗で再起動
+          readinessProbe:
+            exec:
+              command: ["cat", "/tmp/ready"]
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            failureThreshold: 2      # 2回連続失敗でトラフィック遮断
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: probe-demo-svc
+  namespace: k8s-lab
+spec:
+  type: ClusterIP
+  selector:
+    app: probe-demo
+  ports:
+    - port: 80
+      targetPort: 80
