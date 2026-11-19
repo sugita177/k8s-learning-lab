@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom-demo-pod
+  namespace: k8s-lab
+spec:
+  restartPolicy: Never
+  containers:
+    - name: memory-hog
+      image: python:3.12-alpine
+      command:
+        - python3
+        - -c
+        - "print('Allocating 150MB...'); x = bytearray(150 * 1024 * 1024); print('Done!')"
+      resources:
+        requests:
+          memory: "32Mi"
+          cpu: "50m"
+        limits:
+          memory: "64Mi"
+          cpu: "100m"
