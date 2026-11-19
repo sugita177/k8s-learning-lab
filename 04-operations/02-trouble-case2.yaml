@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: trouble-case-2
+  namespace: k8s-lab
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          echo "Starting web application..."
+          if [ -z "$DATABASE_URL" ]; then
+            echo "FATAL ERROR: DATABASE_URL environment variable is missing!" >&2
+            exit 1
+          fi
+          echo "Connected to $DATABASE_URL"
+          sleep 3600
