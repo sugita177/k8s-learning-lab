@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: trouble-case-1
+  namespace: k8s-lab
+spec:
+  containers:
+    - name: web
+      image: nginx:1.27-nonexistent
+      ports:
+        - containerPort: 80
