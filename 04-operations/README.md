@@ -54,4 +54,44 @@ kubectl describe pod oom-demo-pod -n k8s-lab
 ### 3. 作成したマニフェスト
 - [05-oom-demo.yaml](./05-oom-demo.yaml)
 
+---
+
+## Step 4-3: セキュリティと権限管理（ServiceAccount / RBAC / SecurityContext）
+
+### 1. 学んだ概念
+- **最小権限の原則（RBAC: Role-Based Access Control）**:
+  - **ServiceAccount**: Pod（アプリケーション）用の身分証明書（ID）。
+  - **Role**: 特定の Namespace 内で「どのリソースに」「何の操作（`get`, `list`, `create`, `delete` 等）を許可するか」を定義する権限ルール表（クラスタ全体なら `ClusterRole`）。
+  - **RoleBinding**: `ServiceAccount` と `Role` を紐付ける接着剤。
+- **SecurityContext（コンテナ OS レベルの防御）**:
+  - デフォルトの `root (UID 0)` 実行による侵害リスクを防ぐため、`runAsNonRoot: true` や `runAsUser: 1000`、`allowPrivilegeEscalation: false` を設定して一般ユーザー権限で安全に動作させる。
+- **権限検証コマンド（`kubectl auth can-i`）**:
+  - 特定の ServiceAccount に特定の操作権限があるかを `--as=system:serviceaccount:<ns>:<sa>` で即座にテストできる。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. ServiceAccount と SecurityContext 付き Pod のみ適用（RBAC なし状態）
+kubectl apply -f 06-rbac-security.yaml
+kubectl exec -n k8s-lab security-demo-pod -- id
+# => uid=1000 gid=0(root)（非 root での起動を確認）
+
+# 2. Pod 内から API Server へ問い合わせ（権限なし）
+# => 403 Forbidden: cannot list resource "pods"
+
+# 3. Role (pod-reader: get, list) と RoleBinding を追加適用
+kubectl apply -f 06-rbac-security.yaml
+
+# 4. 再度 API Server へ問い合わせ（Pod 再起動なしで即座に成功）
+# => "kind": "PodList"（200 OK）を取得
+
+# 5. 最小権限の確認
+kubectl auth can-i list pods --as=system:serviceaccount:k8s-lab:pod-viewer-sa -n k8s-lab   # => yes
+kubectl auth can-i delete pods --as=system:serviceaccount:k8s-lab:pod-viewer-sa -n k8s-lab # => no
+```
+
+### 3. 作成したマニフェスト
+- [06-rbac-security.yaml](./06-rbac-security.yaml)
+
+
+
 

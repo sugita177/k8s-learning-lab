@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-viewer-sa
+  namespace: k8s-lab
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: security-demo-pod
+  namespace: k8s-lab
+spec:
+  serviceAccountName: pod-viewer-sa # この社員証を使って動く
+  securityContext:
+    runAsNonRoot: true              # root (UID 0) での起動を絶対禁止！
+    runAsUser: 1000                 # 一般ユーザー (UID 1000) として実行
+  containers:
+    - name: curl-client
+      image: curlimages/curl:8.10.1
+      command: ["sleep", "3600"]
+      securityContext:
+        allowPrivilegeEscalation: false # 特権昇格を禁止
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader
+  namespace: k8s-lab
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"] # 読み取りのみ許可（削除 delete や作成 create は禁止）
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods-binding
+  namespace: k8s-lab
+subjects:
+  - kind: ServiceAccount
+    name: pod-viewer-sa    # 誰に？
+    namespace: k8s-lab
+roleRef:
+  kind: Role
+  name: pod-reader         # どの権限カードを？
+  apiGroup: rbac.authorization.k8s.io
+
+
