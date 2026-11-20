@@ -92,6 +92,42 @@ kubectl auth can-i delete pods --as=system:serviceaccount:k8s-lab:pod-viewer-sa 
 ### 3. 作成したマニフェスト
 - [06-rbac-security.yaml](./06-rbac-security.yaml)
 
+---
+
+## Step 4-4: Kustomize による複数環境（dev / prod）のマニフェスト管理実践
+
+### 1. 学んだ概念
+- **DRY 原則と Base / Overlays 構造**:
+  - **Base（`base/`）**: 全環境で共通のベースマニフェスト（Deployment, Service 等）を 1 箇所で管理。
+  - **Overlays（`overlays/dev`, `overlays/prod`）**: 環境ごとの差分（`replicas`、リソース制限、`namePrefix`、環境変数等）だけをパッチとして記述し、コピペ地獄や設定漏れを防ぐ。
+- **主な Kustomize 機能**:
+  - `namePrefix`: 全リソース名の先頭に環境識別子（`dev-`, `prod-`）を自動付与。
+  - `labels`（`includeSelectors: true`）: Pod テンプレートと Service セレクタの両方に環境ラベル（`env: dev` / `env: prod`）を一括付与し、環境間の誤通信を防止。
+  - `kubectl kustomize <dir>`: 適用前の合体・レンダリング結果の事前プレビュー。
+  - `kubectl apply -k <dir>` / `kubectl delete -k <dir>`: Kustomize ディレクトリを指定した一括適用・削除。
+
+### 2. 実行したコマンドと検証結果
+```bash
+# 1. 合体結果の事前プレビュー
+kubectl kustomize kustomize-app/overlays/prod
+
+# 2. dev / prod 両環境のデプロイ
+kubectl apply -k kustomize-app/overlays/dev
+kubectl apply -k kustomize-app/overlays/prod
+
+# 3. 展開結果の確認
+kubectl get deploy,svc,pods -n k8s-lab
+# => dev-web-app (1/1), prod-web-app (3/3) および各専用 Service が正しく展開されたことを確認
+
+# 4. お掃除（削除も -k で一括実行可能）
+kubectl delete -k kustomize-app/overlays/dev
+kubectl delete -k kustomize-app/overlays/prod
+```
+
+### 3. 作成したディレクトリ構成
+- [kustomize-app/](./kustomize-app/)（`base/`, `overlays/dev/`, `overlays/prod/`）
+
+
 
 
 
